@@ -1,0 +1,23 @@
+services:
+  bamboo-mcp:
+    build: .
+    image: bamboo-mcp:latest
+    env_file:
+      - .env
+    volumes:
+      - ~/.bamboo-mcp:/root/.bamboo-mcp
+    stdin_open: true
+    tty: true
+
+  bamboo-mcp-http:
+    build: .
+    image: bamboo-mcp:latest
+    env_file:
+      - .env
+    environment:
+      BAMBOO_MCP_TRANSPORT: http
+      BAMBOO_MCP_PORT: "3000"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ~/.bamboo-mcp:/root/.bamboo-mcp
