@@ -484,7 +484,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "bamboo-mcp"
+name = "bamboo-mcp-rs"
 version = "0.1.0"
 dependencies = [
  "aes-gcm",
