@@ -485,7 +485,7 @@ dependencies = [
 
 [[package]]
 name = "bamboo-mcp-rs"
-version = "0.3.4"
+version = "0.3.5"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -508,6 +508,7 @@ dependencies = [
  "rmcp",
  "rsa",
  "rusqlite",
+ "rustls",
  "serde",
  "serde_json",
  "serde_yaml",
