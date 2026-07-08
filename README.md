@@ -10,13 +10,17 @@ Exposes exactly 3 tools — `search`, `get`, `call` — backed by an embedded se
 cargo build --release
 ```
 
+This builds three binaries into `target/release/`: `bamboo-mcp` (the CLI/server below), `bamboo-mcp-populate-embeddings`, and `bamboo-mcp-healthcheck`. Run `cargo install --path .` instead if you want `bamboo-mcp` on your `PATH` so the commands below work without a `target/release/` prefix.
+
 ## Setup
 
 ```bash
 cargo run -- setup
 ```
 
-Interactively collects the API URL and the credentials your chosen auth method needs, then lets you persist them as a `.env` file, a `config.json` file, or a ready-to-run CLI invocation.
+Interactively collects the API URL and the credentials your chosen auth method needs, then lets you persist them as a `.env` file, a `config.json` file, or a ready-to-run CLI invocation. See `.env.example` for the recognized `BAMBOO_MCP_*` environment variables (URL, auth method, credentials, log level, and — for the `http` transport — host/port/CORS).
+
+Supported auth methods: `basic` (username/password) and `pat` (personal access token, sent as a bearer token).
 
 ## Usage
 
@@ -48,12 +52,77 @@ bamboo-mcp call getBuild -a '{"projectKey":"TP","buildKey":"JOB1","buildNumber":
 bamboo-mcp call addBuildComment -a '{"projectKey":"TP","buildKey":"JOB1","buildNumber":"42","body":{"content":"first successful build"}}'
 ```
 
+Other subcommands: `bamboo-mcp test-connection` (verify the configured API URL/credentials are reachable), `bamboo-mcp config` (print the resolved configuration, secrets redacted), `bamboo-mcp version` (print the installed version), and `bamboo-mcp versions` (list the API spec versions this project has a store for).
+
 ### Harness Server
 
 ```bash
 bamboo-mcp start                              # stdio transport (default)
 bamboo-mcp http --host 127.0.0.1 --port 3000  # HTTP transport
 ```
+
+## Observability & Resilience
+
+### Logging
+
+Structured logs go to **stderr** (never stdout, which is reserved for MCP JSON-RPC frames on stdio transport): JSON by default, pretty-printed automatically when stderr is an interactive TTY (auto-detected — there's no separate flag for this). Level is controlled by `BAMBOO_MCP_LOG_LEVEL` (default `info`), passed straight through to `tracing_subscriber::EnvFilter`, so directive syntax works too, e.g.:
+
+```bash
+BAMBOO_MCP_LOG_LEVEL="bamboo_mcp=debug,warn" bamboo-mcp start
+```
+
+Secret redaction exists as a helper (`core::sanitizer::sanitize`, case-insensitive substring match on keys containing `password`/`token`/`secret`/`authorization`/`apikey`/`api_key`/`api-key`/`credential`), but today its only caller is `bamboo-mcp config` (which prints the resolved config with those fields redacted). Request/response payloads aren't logged at all currently — the only `tracing` call sites are lifecycle/error events — so there's no in-flight redaction path exercised in normal operation yet.
+
+### OpenTelemetry tracing
+
+An OTLP/HTTP trace exporter (`core/otel.rs`) is built unconditionally at startup; if it fails to build, tracing export is silently skipped — there's no dedicated on/off switch in this app. It's *tracing only* (no OTel metrics exporter is wired up — see "Metrics" below). Point it at a collector with the OTLP SDK's own standard env vars (not `BAMBOO_MCP_`-prefixed), which `opentelemetry-otlp` reads directly:
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318 bamboo-mcp start
+```
+
+Defaults to `http://localhost:4318` if unset. `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, `_PROTOCOL`, `_TIMEOUT`, and `_COMPRESSION` are also honored (standard OTLP conventions).
+
+### Metrics
+
+Separate from OTel: `GET /metrics` (HTTP transport only — not available over stdio) serves a minimal hand-rolled Prometheus-text counter store (`http/metrics.rs`). Today it only tracks one counter, `http_requests_total`:
+
+```bash
+curl http://127.0.0.1:3000/metrics
+# http_requests_total 4
+```
+
+### Circuit breaker, retries, and rate limiting
+
+Every outbound call to the Bamboo API (`services/api_client.rs`) passes through a rate limiter, then a circuit breaker, then the retry loop:
+
+| Behavior | Configurable? | Knob | Default |
+|---|---|---|---|
+| Request timeout | Yes | `BAMBOO_MCP_TIMEOUT_MS` / `timeout_ms` | 30000 ms |
+| Retry attempts on request failure | Yes | `BAMBOO_MCP_RETRY_ATTEMPTS` / `retry_attempts` | 3 (immediate retry, no backoff/jitter) |
+| Rate limit | Partially | `BAMBOO_MCP_RATE_LIMIT` / `rate_limit` | 100 calls; window is hardcoded to 1 second, not configurable |
+| Circuit breaker | **No** | — (`CircuitBreaker::default()`) | opens after 5 consecutive failures, 30s before a half-open trial call |
+
+("Knob" here means an env var or a matching key in `bamboo-mcp.config.yml`/`~/.bamboo-mcp/config.yml`/`/etc/bamboo-mcp/config.yml` — see the config cascade in `core/config_manager.rs`.)
+
+### Health checks
+
+`GET /healthz` (HTTP transport only) reports the status of a `ComponentRegistry`, refreshed every 30 seconds with a 5-second per-check timeout by a `HealthCheckManager` — both intervals are hardcoded, not configurable. Today exactly one check is registered, `store` (can the active `mcp_store*.db` file be opened), marked critical:
+
+```bash
+curl http://127.0.0.1:3000/healthz
+# {"status":"Healthy","components":1}   # 503 + "Unhealthy" if the critical check is failing
+```
+
+Two related but distinct checks exist:
+- `bamboo-mcp-healthcheck` — the standalone binary wired into the Dockerfile's `HEALTHCHECK`; it only checks that `mcp_store.db` exists and is readable on disk, and does not talk to a running server or `/healthz`.
+- `bamboo-mcp test-connection` — an on-demand CLI check that the *target Bamboo API itself* is reachable with the configured credentials; unrelated to the periodic `/healthz` checks above.
+
+### Credential storage
+
+`bamboo-mcp setup` writes credentials straight to the OS-native secret store via the `keyring` crate (macOS Keychain / Windows Credential Manager / Linux Secret Service), under service `bamboo-mcp`, account `active-credentials`. If no OS keychain backend is available (e.g. no D-Bus secret-service daemon in a minimal container), it falls back automatically to an AES-256-GCM-encrypted file at `~/.bamboo-mcp/credentials.enc` (`0600`, parent dir `0700` on Unix); the key is derived from `$HOME` plus the service name, so that file isn't portable to another machine.
+
+One gap worth knowing about: the `BAMBOO_MCP_USERNAME`/`BAMBOO_MCP_PASSWORD`/`BAMBOO_MCP_TOKEN` entries that `setup` offers to also write into a `.env`/`config.json` (matching `.env.example`) are **not read back by `bamboo-mcp` at runtime** — no code in this project consumes those env vars. Only the keychain (or its encrypted-file fallback) that `setup` populates directly is ever consulted for credentials. If you skip the interactive wizard, there's currently no supported way to set credentials via env/config file — run `bamboo-mcp setup` on each machine instead.
 
 ## Testing
 
@@ -75,6 +144,10 @@ cargo run --release --features profiling -- search "test query"   # heap profili
 ```
 
 `profile/bottleneck-report.md` combines coverage gaps with the hottest CPU functions in one small text file — paste it into an LLM (or hand it to another tool) to find and fix bottlenecks. Requires [samply](https://github.com/mstange/samply) (`cargo install samply`).
+
+## License
+
+MIT — see [LICENSE](LICENSE).
 
 ---
 
