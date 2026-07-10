@@ -12,6 +12,8 @@ cargo build --release
 
 This builds three binaries into `target/release/`: `bamboo-mcp` (the CLI/server below), `bamboo-mcp-populate-embeddings`, and `bamboo-mcp-healthcheck`. Run `cargo install --path .` instead if you want `bamboo-mcp` on your `PATH` so the commands below work without a `target/release/` prefix.
 
+Prebuilt binaries for macOS, Linux, and Windows are attached to each [GitHub Release](https://github.com/guercheLE/bamboo-mcp-rs/releases), along with a shell/PowerShell installer script.
+
 ## Setup
 
 ```bash
