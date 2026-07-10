@@ -24,8 +24,7 @@ static REGISTER_VEC_EXTENSION: Once = Once::new();
 // mcpify:versions:begin
 pub const VERSION_STORE_FILES: &[(&str, &str)] = &[("default", "mcp_store.db")];
 
-const VERSION_STORE_BYTES: &[(&str, &[u8])] =
-    &[("default", include_bytes!("../../mcp_store.db"))];
+const VERSION_STORE_BYTES: &[(&str, &[u8])] = &[("default", include_bytes!("../../mcp_store.db"))];
 // mcpify:versions:end
 
 /// Resolves the active `api_version` (from the config cascade) to its
@@ -263,10 +262,14 @@ mod tests {
     /// review since the two arrays are edited in different places.
     #[test]
     fn every_version_store_file_has_embedded_bytes() {
-        let file_labels: std::collections::HashSet<_> =
-            VERSION_STORE_FILES.iter().map(|(label, _)| *label).collect();
-        let byte_labels: std::collections::HashSet<_> =
-            VERSION_STORE_BYTES.iter().map(|(label, _)| *label).collect();
+        let file_labels: std::collections::HashSet<_> = VERSION_STORE_FILES
+            .iter()
+            .map(|(label, _)| *label)
+            .collect();
+        let byte_labels: std::collections::HashSet<_> = VERSION_STORE_BYTES
+            .iter()
+            .map(|(label, _)| *label)
+            .collect();
         assert_eq!(file_labels, byte_labels);
     }
 
