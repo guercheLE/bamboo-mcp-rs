@@ -48,11 +48,13 @@ bamboo-mcp get getBuild
 # }
 
 # 3. Call it — args are validated against that schema before the request is sent
-bamboo-mcp call getBuild -a '{"projectKey":"TP","buildKey":"JOB1","buildNumber":"42"}'
+bamboo-mcp call getBuild --args '{"projectKey":"TP","buildKey":"JOB1","buildNumber":"42"}'
 
 # Operations with a request body take it as a nested object in the same --args JSON
-bamboo-mcp call addBuildComment -a '{"projectKey":"TP","buildKey":"JOB1","buildNumber":"42","body":{"content":"first successful build"}}'
+bamboo-mcp call addBuildComment --args '{"projectKey":"TP","buildKey":"JOB1","buildNumber":"42","body":{"content":"first successful build"}}'
 ```
+
+`call` accepts one JSON object through `--args` (or `-a`), not arbitrary per-operation CLI flags.
 
 Other subcommands: `bamboo-mcp test-connection` (verify the configured API URL/credentials are reachable), `bamboo-mcp config` (print the resolved configuration, secrets redacted), `bamboo-mcp version` (print the installed version), and `bamboo-mcp versions` (list the API spec versions this project has a store for).
 
