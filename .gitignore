@@ -22,5 +22,7 @@ target/
 # Downloaded embedding model cache
 .fastembed_cache/
 
-# Local mcpify tool metadata
-.mcpify/
+# Keep reproducible mcpify project metadata while ignoring local scratch files.
+.mcpify/*
+!.mcpify/versions.json
+!.mcpify/settings.yaml
