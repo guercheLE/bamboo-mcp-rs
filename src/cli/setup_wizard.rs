@@ -177,12 +177,14 @@ async fn prompt_persistence(env: &HashMap<String, String>) -> anyhow::Result<()>
             std::fs::write(".env", format!("{contents}\n"))?;
             println!("Wrote .env");
         }
-        "Write a local config.yml file (./bamboo-mcp.config.yml — read before any other config file)" => {
+        "Write a local config.yml file (./bamboo-mcp.config.yml — read before any other config file)" =>
+        {
             let path = std::path::PathBuf::from(LOCAL_CONFIG_FILE);
             std::fs::write(&path, non_secret_config_yaml(env))?;
             println!("Wrote {}", path.display());
         }
-        "Write a global config.yml file (~/.bamboo-mcp/config.yml — read for every deployment on this machine)" => {
+        "Write a global config.yml file (~/.bamboo-mcp/config.yml — read for every deployment on this machine)" =>
+        {
             let dir = resolve_home_dir().join(CONFIG_DIR_NAME);
             std::fs::create_dir_all(&dir)?;
             let path = dir.join("config.yml");

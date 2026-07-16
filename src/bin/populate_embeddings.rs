@@ -91,9 +91,10 @@ fn populate_one(path: &Path) -> anyhow::Result<usize> {
 
     let endpoints_count: usize =
         conn.query_row("SELECT COUNT(*) FROM endpoints", [], |row| row.get(0))?;
-    let semantic_count: usize = conn.query_row("SELECT COUNT(*) FROM semantic_endpoints", [], |row| {
-        row.get(0)
-    })?;
+    let semantic_count: usize =
+        conn.query_row("SELECT COUNT(*) FROM semantic_endpoints", [], |row| {
+            row.get(0)
+        })?;
     if semantic_count != endpoints_count {
         let mut missing_select = conn.prepare(
             "SELECT operation_id FROM endpoints \
