@@ -33,6 +33,13 @@ fn vector_to_le_bytes(vector: &[f32]) -> Vec<u8> {
 
 /// Populates one store file's `semantic_endpoints` table in place,
 /// returning how many operations were (re)indexed.
+///
+/// Every row failure is a hard failure for the whole run (via `?` on
+/// `embed`/`execute` below) — a partially-embedded store must never be
+/// reported as a success. After inserting, this also verifies the
+/// `semantic_endpoints` row count matches `endpoints`' row count for this
+/// same store; a "populated but incomplete" store (rows silently
+/// skipped/failed without raising) must not pass silently either.
 fn populate_one(path: &Path) -> anyhow::Result<usize> {
     let conn = open_store_read_write(path)?;
 
@@ -82,26 +89,43 @@ fn populate_one(path: &Path) -> anyhow::Result<usize> {
         ])?;
     }
 
+    let endpoints_count: usize =
+        conn.query_row("SELECT COUNT(*) FROM endpoints", [], |row| row.get(0))?;
+    let semantic_count: usize = conn.query_row("SELECT COUNT(*) FROM semantic_endpoints", [], |row| {
+        row.get(0)
+    })?;
+    if semantic_count != endpoints_count {
+        let mut missing_select = conn.prepare(
+            "SELECT operation_id FROM endpoints \
+             WHERE operation_id NOT IN (SELECT operation_id FROM semantic_endpoints)",
+        )?;
+        let missing: Vec<String> = missing_select
+            .query_map([], |row| row.get(0))?
+            .collect::<Result<_, _>>()?;
+        anyhow::bail!(
+            "'{}': semantic_endpoints has {semantic_count} row(s) but endpoints has \
+             {endpoints_count} — incomplete embedding population. Missing operation_id(s): {}",
+            path.display(),
+            missing.join(", ")
+        );
+    }
+
     Ok(count)
 }
 
-/// Which store file(s) to populate: bare invocation targets just
-/// `mcp_store.db` (the default version), matching every deployment that
-/// only ever ships that one file (this project's own Dockerfile
-/// included); an explicit path targets exactly that file; `--all` walks
-/// every version this project's ledger knows about
-/// (`VERSION_STORE_FILES`) — the one-time local backfill needed after
-/// `mcpify add-version` adds a new version file, since each version's
-/// `.db` gets its own independent `semantic_endpoints` table.
+/// Which store file(s) to populate: bare invocation (and `--all`, kept as
+/// an explicit synonym) targets every version this project's ledger knows
+/// about (`VERSION_STORE_FILES`) — so a plain, no-arg run never leaves a
+/// non-default version's store at 0 rows; an explicit path argument
+/// targets exactly that one file, for a single-store re-run.
 fn targets() -> Vec<PathBuf> {
     let mut args = std::env::args().skip(1);
     match args.next().as_deref() {
-        Some("--all") => VERSION_STORE_FILES
+        Some("--all") | None => VERSION_STORE_FILES
             .iter()
             .map(|(_, file)| PathBuf::from(file))
             .collect(),
         Some(path) => vec![PathBuf::from(path)],
-        None => vec![PathBuf::from("mcp_store.db")],
     }
 }
 

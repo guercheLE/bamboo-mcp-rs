@@ -8,15 +8,21 @@ use super::config_schema::Config;
 use super::errors::McpifyError;
 
 const ENV_PREFIX: &str = "BAMBOO_MCP";
-const CONFIG_DIR_NAME: &str = ".bamboo-mcp";
-const LOCAL_CONFIG_FILE: &str = "bamboo-mcp.config.yml";
+/// The home-relative config directory name, and the local-cwd config
+/// filename, exposed publicly so `cli::setup_wizard` can persist a config
+/// file to exactly the path/tier this module's own `load_config` cascade
+/// reads back — keeping the writer and the reader in lockstep.
+pub const CONFIG_DIR_NAME: &str = ".bamboo-mcp";
+pub const LOCAL_CONFIG_FILE: &str = "bamboo-mcp.config.yml";
 
-/// Env vars this crate reads directly (`HOME`) rather than via a `dirs`-style
-/// crate: keeps the dependency list matched to the toolchain table, at the
-/// cost of `~` resolution only working where `$HOME` is set (true for every
+/// Env vars this crate reads directly (`HOME`, with a `USERPROFILE`
+/// fallback for Windows) rather than via a `dirs`-style crate: keeps the
+/// dependency list matched to the toolchain table, at the cost of `~`
+/// resolution only working where one of those is set (true for every
 /// deployment target this project's Dockerfile/docker-compose.yml target).
-fn home_dir() -> PathBuf {
+pub fn resolve_home_dir() -> PathBuf {
     std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."))
 }
@@ -70,7 +76,7 @@ pub fn load_config(cli_flags: Map<String, Value>) -> Result<Config, McpifyError>
         cli_flags,
         env_overrides(),
         read_yaml_if_exists(&PathBuf::from(LOCAL_CONFIG_FILE)),
-        read_yaml_if_exists(&home_dir().join(CONFIG_DIR_NAME).join("config.yml")),
+        read_yaml_if_exists(&resolve_home_dir().join(CONFIG_DIR_NAME).join("config.yml")),
         read_yaml_if_exists(&PathBuf::from("/etc/bamboo-mcp/config.yml")),
         read_yaml_if_exists(&install_dir.join("config.yml")),
     ];

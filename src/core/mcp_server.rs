@@ -44,12 +44,19 @@ pub struct GetArgs {
     pub operation_id: String,
 }
 
+fn default_call_arguments() -> serde_json::Value {
+    serde_json::json!({})
+}
+
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct CallArgs {
     /// operationId returned by search
     pub operation_id: String,
-    /// Operation parameters and/or request body
-    #[serde(default)]
+    /// Operation parameters and/or request body. Defaults to `{}` (not
+    /// `null`) when omitted, since every operation's generated input JSON
+    /// Schema unconditionally declares `"type": "object"` — `null` always
+    /// fails validation, only `{}` passes.
+    #[serde(default = "default_call_arguments")]
     pub arguments: serde_json::Value,
 }
 

@@ -5,6 +5,30 @@ use rusqlite::Connection;
 use crate::data::store::search_endpoints;
 use crate::services::embedding_service::embed;
 
+/// Cheap diagnostic: warns (does not fail) when this store's
+/// `semantic_endpoints` row count is below its `endpoints` row count,
+/// which means `populate_embeddings` never fully indexed this store —
+/// search results may be silently missing operations that legitimately
+/// exist. Does not change the success/`[]` return contract for
+/// legitimately-empty search results.
+fn warn_if_incomplete(conn: &Connection) {
+    let counts: rusqlite::Result<(i64, i64)> = conn.query_row(
+        "SELECT (SELECT COUNT(*) FROM endpoints), (SELECT COUNT(*) FROM semantic_endpoints)",
+        [],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    );
+    if let Ok((endpoints_count, semantic_count)) = counts
+        && semantic_count < endpoints_count
+    {
+        tracing::warn!(
+            endpoints_count,
+            semantic_count,
+            "semantic_endpoints is incomplete for this store — some operations may be missing \
+             from search results; re-run populate_embeddings"
+        );
+    }
+}
+
 /// Semantic similarity lookup matching a natural-language query against
 /// candidate API operations (PRD §1.5) — so an LLM never needs the full
 /// OpenAPI spec in context to find the right operation.
@@ -13,6 +37,7 @@ pub fn search_operations(
     query: &str,
     limit: usize,
 ) -> anyhow::Result<serde_json::Value> {
+    warn_if_incomplete(conn);
     let query_embedding = embed(query)?;
     let results = search_endpoints(conn, &query_embedding, limit)?;
     Ok(serde_json::to_value(results)?)

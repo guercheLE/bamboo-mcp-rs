@@ -2,7 +2,9 @@
 //
 // Interactive setup wizard (REQ-1.6): collects the API URL and the
 // credentials the discovered auth scheme(s) need, then persists them per
-// the operator's choice: a .env file, a config.json file, or a
+// the operator's choice: a .env file, a YAML config file (local
+// `./bamboo-mcp.config.yml` or global `~/.bamboo-mcp/config.yml` — whichever
+// tier `config_manager::load_config`'s cascade actually reads), or a
 // ready-to-run CLI invocation printed to stdout (nothing written to disk).
 // `inquire`'s prompts are blocking — run through `spawn_blocking`, the
 // same pattern mcpify's own `auth_profile::prompt` documents for calling
@@ -11,11 +13,52 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
+use bamboo_mcp::core::config_manager::{CONFIG_DIR_NAME, LOCAL_CONFIG_FILE, resolve_home_dir};
 use bamboo_mcp::core::config_schema::{AuthMethod, Transport};
 use bamboo_mcp::core::credential_storage::save_credential;
 
 fn to_env_key(key: &str) -> String {
     key.to_uppercase()
+}
+
+/// Non-secret `Config` field names `config_manager::load_config`'s YAML
+/// layers actually deserialize — credentials (`username`/`password`/
+/// `token`) are deliberately excluded here and keep going through
+/// `save_credential`'s keychain/encrypted-file path instead, never written
+/// to a config file on disk.
+const NON_SECRET_CONFIG_KEYS: &[&str] = &[
+    "url",
+    "auth_method",
+    "api_version",
+    "log_level",
+    "transport",
+    "host",
+    "cors_allow",
+    "rate_limit",
+    "timeout_ms",
+    "cache_size",
+    "retry_attempts",
+    "port",
+];
+
+/// Builds the YAML document `load_config` will read back: strips the
+/// `BAMBOO_MCP_` prefix each env-var-style key carries and keeps only the
+/// non-secret `Config` fields.
+fn non_secret_config_yaml(env: &HashMap<String, String>) -> String {
+    let mut map = serde_yaml::Mapping::new();
+    for (key, value) in env {
+        let Some(stripped) = key.strip_prefix("BAMBOO_MCP_") else {
+            continue;
+        };
+        let config_key = stripped.to_lowercase();
+        if NON_SECRET_CONFIG_KEYS.contains(&config_key.as_str()) {
+            map.insert(
+                serde_yaml::Value::String(config_key),
+                serde_yaml::Value::String(value.clone()),
+            );
+        }
+    }
+    serde_yaml::to_string(&serde_yaml::Value::Mapping(map)).unwrap_or_default()
 }
 
 async fn prompt_base_url() -> anyhow::Result<String> {
@@ -115,7 +158,8 @@ async fn prompt_credentials(auth_method: AuthMethod) -> anyhow::Result<HashMap<S
 async fn prompt_persistence(env: &HashMap<String, String>) -> anyhow::Result<()> {
     let choices = vec![
         "Write a .env file",
-        "Write a config.json file",
+        "Write a local config.yml file (./bamboo-mcp.config.yml — read before any other config file)",
+        "Write a global config.yml file (~/.bamboo-mcp/config.yml — read for every deployment on this machine)",
         "Print a ready-to-run CLI invocation (nothing written to disk)",
     ];
     let selection = tokio::task::spawn_blocking(move || {
@@ -133,9 +177,17 @@ async fn prompt_persistence(env: &HashMap<String, String>) -> anyhow::Result<()>
             std::fs::write(".env", format!("{contents}\n"))?;
             println!("Wrote .env");
         }
-        "Write a config.json file" => {
-            std::fs::write("config.json", serde_json::to_string_pretty(env)?)?;
-            println!("Wrote config.json");
+        "Write a local config.yml file (./bamboo-mcp.config.yml — read before any other config file)" => {
+            let path = std::path::PathBuf::from(LOCAL_CONFIG_FILE);
+            std::fs::write(&path, non_secret_config_yaml(env))?;
+            println!("Wrote {}", path.display());
+        }
+        "Write a global config.yml file (~/.bamboo-mcp/config.yml — read for every deployment on this machine)" => {
+            let dir = resolve_home_dir().join(CONFIG_DIR_NAME);
+            std::fs::create_dir_all(&dir)?;
+            let path = dir.join("config.yml");
+            std::fs::write(&path, non_secret_config_yaml(env))?;
+            println!("Wrote {}", path.display());
         }
         _ => {
             let flags = env
@@ -148,6 +200,10 @@ async fn prompt_persistence(env: &HashMap<String, String>) -> anyhow::Result<()>
             println!("bamboo-mcp start {flags}");
         }
     }
+    println!(
+        "Credentials are stored separately via the OS keychain (or an encrypted local file \
+         fallback) — never written into a config file on disk."
+    );
     Ok(())
 }
 

@@ -20,9 +20,11 @@ Prebuilt binaries for macOS, Linux, and Windows are attached to each [GitHub Rel
 cargo run -- setup
 ```
 
-Interactively collects the API URL and the credentials your chosen auth method needs, then lets you persist them as a `.env` file, a `config.json` file, or a ready-to-run CLI invocation. See `.env.example` for the recognized `BAMBOO_MCP_*` environment variables (URL, auth method, credentials, log level, and — for the `http` transport — host/port/CORS).
+Interactively collects the API URL and the credentials your chosen auth method needs, then lets you persist them as a `.env` file, a local (`./bamboo-mcp.config.yml`) or global (`~/.bamboo-mcp/config.yml`) YAML config file, or a ready-to-run CLI invocation. See `.env.example` for the recognized `BAMBOO_MCP_*` environment variables (URL, auth method, credentials, log level, and — for the `http` transport — host/port/CORS).
 
 Supported auth methods: `basic` (username/password) and `pat` (personal access token, sent as a bearer token).
+
+**Base URL:** `BAMBOO_MCP_URL` must end in `/rest` (e.g. `https://bamboo.example.com/rest`). Some APIs define their OpenAPI `servers[].url` with a path prefix like this — if requests 404, check whether your API's base URL needs that suffix appended.
 
 ## Usage
 
@@ -126,7 +128,7 @@ Two related but distinct checks exist:
 
 `bamboo-mcp setup` writes credentials straight to the OS-native secret store via the `keyring` crate (macOS Keychain / Windows Credential Manager / Linux Secret Service), under service `bamboo-mcp`, account `active-credentials`. If no OS keychain backend is available (e.g. no D-Bus secret-service daemon in a minimal container), it falls back automatically to an AES-256-GCM-encrypted file at `~/.bamboo-mcp/credentials.enc` (`0600`, parent dir `0700` on Unix); the key is derived from `$HOME` plus the service name, so that file isn't portable to another machine.
 
-One gap worth knowing about: the `BAMBOO_MCP_USERNAME`/`BAMBOO_MCP_PASSWORD`/`BAMBOO_MCP_TOKEN` entries that `setup` offers to also write into a `.env`/`config.json` (matching `.env.example`) are **not read back by `bamboo-mcp` at runtime** — no code in this project consumes those env vars. Only the keychain (or its encrypted-file fallback) that `setup` populates directly is ever consulted for credentials. If you skip the interactive wizard, there's currently no supported way to set credentials via env/config file — run `bamboo-mcp setup` on each machine instead.
+The `BAMBOO_MCP_TOKEN`/`BAMBOO_MCP_API_KEY` (for `pat` auth) and `BAMBOO_MCP_USERNAME`/`BAMBOO_MCP_PASSWORD` (for `basic` auth) env vars documented in `.env.example` are read directly by `AuthManager::credentials()` and take priority over the stored keychain/file credentials — useful for supplying credentials purely via environment (e.g. in a container) without ever running `setup`. Credentials are never persisted into the `.env`/config-file output of `setup` itself; those files only carry non-secret settings, with credentials always going through the keychain/encrypted-file path.
 
 ## Testing
 

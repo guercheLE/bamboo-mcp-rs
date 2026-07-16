@@ -64,11 +64,43 @@ impl AuthManager {
         self.cached_credentials = Some(credentials);
     }
 
+    /// Builds an `AuthConfig` from the `BAMBOO_MCP_*` env vars documented in
+    /// `.env.example` for the currently-resolved `auth_method`, so a
+    /// deployment can supply credentials purely via environment (e.g. in a
+    /// container) without ever running `setup`/populating the
+    /// keychain/file store. `None` when the relevant var(s) aren't set,
+    /// so the caller falls through to `load_credential` unchanged.
+    fn credentials_from_env(&self) -> Option<AuthConfig> {
+        match self.auth_method {
+            AuthMethod::Pat => {
+                let token = std::env::var("BAMBOO_MCP_TOKEN")
+                    .or_else(|_| std::env::var("BAMBOO_MCP_API_KEY"))
+                    .ok()?;
+                Some(AuthConfig::from([("token".to_string(), token)]))
+            }
+            AuthMethod::Basic => {
+                let username = std::env::var("BAMBOO_MCP_USERNAME").ok()?;
+                let password = std::env::var("BAMBOO_MCP_PASSWORD").ok()?;
+                Some(AuthConfig::from([
+                    ("username".to_string(), username),
+                    ("password".to_string(), password),
+                ]))
+            }
+        }
+    }
+
     pub async fn credentials(&mut self) -> anyhow::Result<Credentials> {
         if let Some(cached) = &self.cached_credentials
             && self.strategy.validate_credentials(cached)
         {
             return self.normalize_credentials(cached).await;
+        }
+
+        if let Some(env_config) = self.credentials_from_env() {
+            let authenticated = self.strategy.authenticate(&env_config).await?;
+            let normalized = self.normalize_credentials(&authenticated).await?;
+            self.cached_credentials = Some(normalized.clone());
+            return Ok(normalized);
         }
 
         if let Some(stored) = load_credential(CREDENTIAL_ACCOUNT)? {
@@ -167,7 +199,11 @@ impl AuthManager {
         } else if let Some(header) = credentials.get("authorization_header") {
             headers.insert("Authorization".to_string(), header.clone());
         } else if let Some(api_key) = credentials.get("api_key") {
-            headers.insert("X-Api-Key".to_string(), api_key.clone());
+            let header_name = credentials
+                .get("request_header_name")
+                .cloned()
+                .unwrap_or_else(|| "X-Api-Key".to_string());
+            headers.insert(header_name, api_key.clone());
         }
         Ok(headers)
     }

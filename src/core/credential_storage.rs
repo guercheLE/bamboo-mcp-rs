@@ -11,11 +11,20 @@ use sha2::{Digest, Sha256};
 
 const SERVICE_NAME: &str = "bamboo-mcp";
 
-fn config_dir() -> PathBuf {
-    let home = std::env::var_os("HOME")
+/// Resolves the current user's home directory, trying `HOME` first (set on
+/// every Unix-like platform) then falling back to `USERPROFILE` (the
+/// Windows equivalent) and finally `.` (cwd) if neither is set — without
+/// this fallback, Windows deployments silently resolve config/credential
+/// paths relative to cwd instead of the user's actual home directory.
+fn resolve_home_dir() -> PathBuf {
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("."));
-    home.join(".bamboo-mcp")
+        .unwrap_or_else(|| PathBuf::from("."))
+}
+
+fn config_dir() -> PathBuf {
+    resolve_home_dir().join(".bamboo-mcp")
 }
 
 fn fallback_file() -> PathBuf {
@@ -29,7 +38,7 @@ fn fallback_file() -> PathBuf {
 /// equally-simple choice available in this crate's toolchain that also
 /// detects tampering, which CBC alone does not.
 fn encryption_key() -> [u8; 32] {
-    let home = std::env::var("HOME").unwrap_or_default();
+    let home = resolve_home_dir().to_string_lossy().into_owned();
     let mut hasher = Sha256::new();
     hasher.update(home.as_bytes());
     hasher.update(SERVICE_NAME.as_bytes());
@@ -138,7 +147,7 @@ pub fn save_credential(account: &str, value: &str) -> anyhow::Result<()> {
 pub fn load_credential(account: &str) -> anyhow::Result<Option<String>> {
     match Entry::new(SERVICE_NAME, account).and_then(|entry| entry.get_password()) {
         Ok(password) => Ok(Some(password)),
-        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(keyring::Error::NoEntry) => load_from_file(account),
         Err(_) => load_from_file(account),
     }
 }
