@@ -7,6 +7,16 @@ fn generated_server(args: &[&str]) -> Output {
         .env("BAMBOO_MCP_AUTH_METHOD", "basic")
         .env_remove("BAMBOO_MCP_API_VERSION")
         .env_remove("BAMBOO_MCP_TRANSPORT")
+        // Isolates the config cascade's global-config layer
+        // (`~/.bamboo-mcp/config.yml`, resolved via
+        // `core::credential_storage::resolve_home_dir`'s `HOME`/`USERPROFILE`
+        // lookup) from whatever this machine's real user has configured —
+        // without this, a developer who has actually run `setup` for real
+        // use gets spurious failures here from their own settings (e.g. a
+        // stale `api_version` predating a version-labeling change),
+        // depending on the machine `cargo test` happens to run on rather
+        // than on this crate's own code.
+        .env("HOME", env!("CARGO_TARGET_TMPDIR"))
         .output()
         .expect("generated server should run")
 }
@@ -209,6 +219,8 @@ fn http_command_serves_health_and_shuts_down_cleanly() {
         ])
         .env("BAMBOO_MCP_URL", "http://127.0.0.1")
         .env("BAMBOO_MCP_AUTH_METHOD", "basic")
+        // See generated_server()'s identical HOME override above.
+        .env("HOME", env!("CARGO_TARGET_TMPDIR"))
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()
