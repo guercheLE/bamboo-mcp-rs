@@ -32,14 +32,10 @@ fn vector_to_le_bytes(vector: &[f32]) -> Vec<u8> {
 }
 
 /// Populates one store file's `semantic_endpoints` table in place,
-/// returning how many operations were (re)indexed.
-///
-/// Every row failure is a hard failure for the whole run (via `?` on
-/// `embed`/`execute` below) — a partially-embedded store must never be
-/// reported as a success. After inserting, this also verifies the
-/// `semantic_endpoints` row count matches `endpoints`' row count for this
-/// same store; a "populated but incomplete" store (rows silently
-/// skipped/failed without raising) must not pass silently either.
+/// returning how many operations were (re)indexed. Any single row's
+/// embedding computation/insert failing propagates as a hard error via `?`
+/// (never silently skipped) — a partially-embedded store is worse than a
+/// script that stops and reports exactly which operation broke.
 fn populate_one(path: &Path) -> anyhow::Result<usize> {
     let conn = open_store_read_write(path)?;
 
@@ -71,6 +67,7 @@ fn populate_one(path: &Path) -> anyhow::Result<usize> {
     // an acceptable trade for a one-time setup script.
     let count = rows.len();
     for row in rows {
+        let operation_id = row.operation_id.clone();
         let text = [
             Some(row.method),
             Some(row.path),
@@ -81,7 +78,12 @@ fn populate_one(path: &Path) -> anyhow::Result<usize> {
         .flatten()
         .collect::<Vec<_>>()
         .join(" ");
-        let vector = embed(&text)?;
+        let vector = embed(&text).map_err(|err| {
+            anyhow::anyhow!(
+                "failed to compute embedding for '{operation_id}' in '{}': {err}",
+                path.display()
+            )
+        })?;
         delete.execute(rusqlite::params![row.operation_id])?;
         insert.execute(rusqlite::params![
             row.operation_id,
@@ -89,38 +91,36 @@ fn populate_one(path: &Path) -> anyhow::Result<usize> {
         ])?;
     }
 
-    let endpoints_count: usize =
-        conn.query_row("SELECT COUNT(*) FROM endpoints", [], |row| row.get(0))?;
-    let semantic_count: usize =
-        conn.query_row("SELECT COUNT(*) FROM semantic_endpoints", [], |row| {
-            row.get(0)
-        })?;
-    if semantic_count != endpoints_count {
-        let mut missing_select = conn.prepare(
-            "SELECT operation_id FROM endpoints \
-             WHERE operation_id NOT IN (SELECT operation_id FROM semantic_endpoints)",
-        )?;
-        let missing: Vec<String> = missing_select
-            .query_map([], |row| row.get(0))?
-            .collect::<Result<_, _>>()?;
-        anyhow::bail!(
-            "'{}': semantic_endpoints has {semantic_count} row(s) but endpoints has \
-             {endpoints_count} — incomplete embedding population. Missing operation_id(s): {}",
-            path.display(),
-            missing.join(", ")
-        );
-    }
-
     Ok(count)
 }
 
-/// Which store file(s) to populate: bare invocation (and `--all`, kept as
-/// an explicit synonym) targets every version this project's ledger knows
-/// about (`VERSION_STORE_FILES`) — so a plain, no-arg run never leaves a
-/// non-default version's store at 0 rows; an explicit path argument
-/// targets exactly that one file, for a single-store re-run.
-fn targets() -> Vec<PathBuf> {
-    let mut args = std::env::args().skip(1);
+/// Verifies `semantic_endpoints` row count equals `endpoints` row count for
+/// the store at `path` — a store can end up with `endpoints` rows but no
+/// matching `semantic_endpoints` rows if embedding generation/insertion was
+/// silently skipped or partially failed for some rows, and that must not be
+/// allowed to pass as "populated". Returns the operation IDs present in
+/// `endpoints` but missing from `semantic_endpoints` when counts diverge.
+fn missing_operation_ids(path: &Path) -> anyhow::Result<Vec<String>> {
+    let conn = open_store_read_write(path)?;
+    let mut select = conn.prepare(
+        "SELECT e.operation_id FROM endpoints e \
+         LEFT JOIN semantic_endpoints s ON s.operation_id = e.operation_id \
+         WHERE s.operation_id IS NULL",
+    )?;
+    let missing: Vec<String> = select
+        .query_map([], |row| row.get(0))?
+        .collect::<Result<_, _>>()?;
+    Ok(missing)
+}
+
+/// Which store file(s) to populate: bare invocation (and `--all`) both walk
+/// every version this project's ledger knows about (`VERSION_STORE_FILES`)
+/// — defaulting to just the default version's store left every other
+/// version's `semantic_endpoints` table at 0 rows unless `--all` was passed
+/// explicitly, so the safe default is "populate everything". An explicit
+/// path argument still targets exactly that one file, for a targeted
+/// re-run.
+fn targets_from(mut args: impl Iterator<Item = String>) -> Vec<PathBuf> {
     match args.next().as_deref() {
         Some("--all") | None => VERSION_STORE_FILES
             .iter()
@@ -130,13 +130,55 @@ fn targets() -> Vec<PathBuf> {
     }
 }
 
+fn targets() -> Vec<PathBuf> {
+    targets_from(std::env::args().skip(1))
+}
+
 fn main() -> anyhow::Result<()> {
+    let mut had_mismatch = false;
     for path in targets() {
         let count = populate_one(&path)?;
         println!(
             "populated embeddings for {count} operation(s) in '{}'",
             path.display()
         );
+
+        let missing = missing_operation_ids(&path)?;
+        if !missing.is_empty() {
+            had_mismatch = true;
+            eprintln!(
+                "ERROR: '{}' has {} endpoint(s) missing from semantic_endpoints (row-count \
+                 parity check failed): {}",
+                path.display(),
+                missing.len(),
+                missing.join(", ")
+            );
+        }
+    }
+    if had_mismatch {
+        anyhow::bail!(
+            "embedding population incomplete: one or more stores have semantic_endpoints \
+             row counts below their endpoints row counts (see errors above)"
+        );
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn target_selection_covers_defaults_all_and_explicit_paths_without_mutating_stores() {
+        let expected = VERSION_STORE_FILES
+            .iter()
+            .map(|(_, file)| PathBuf::from(file))
+            .collect::<Vec<_>>();
+        assert_eq!(targets_from(std::iter::empty()), expected);
+        assert_eq!(targets_from(["--all".to_string()].into_iter()), expected);
+        assert_eq!(
+            targets_from(["copy.db".to_string()].into_iter()),
+            vec![PathBuf::from("copy.db")]
+        );
+    }
 }

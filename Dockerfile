@@ -17,11 +17,17 @@ RUN apt-get update \
 
 COPY Cargo.toml Cargo.lock* ./
 COPY src ./src
-# Include every current and future API version store in the build context.
+# The wildcard remains valid after `mcpify add-version` adds another store;
+# `store.rs` embeds every matching version via `include_bytes!`.
 COPY mcp_store*.db ./
 
-# Populate every store before the final build so include_bytes! embeds vectors.
+# Build the helper first, populate every version, then perform the final
+# release build so `include_bytes!` captures the populated database bytes.
 RUN cargo build --locked --release --bin bamboo-mcp-populate-embeddings
+
+# mcp_store.db leaves the Rust generator with an empty semantic_endpoints
+# table (vectors are computed here, not by mcpify itself — see the plan's
+# embeddings decision), so it must be populated before the image is usable.
 RUN ./target/release/bamboo-mcp-populate-embeddings --all
 RUN cargo build --locked --release
 

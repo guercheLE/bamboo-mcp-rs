@@ -25,6 +25,10 @@ static REGISTER_VEC_EXTENSION: Once = Once::new();
 // mcpify:versions:begin
 pub const VERSION_STORE_FILES: &[(&str, &str)] = &[("default", "mcp_store.db")];
 
+// Every `.db` this crate supports, embedded into the compiled binary
+// itself via `include_bytes!` — mirrors how `validator.rs` already
+// embeds each version's schema, so this crate never needs its `.db`
+// files to exist anywhere on disk after `cargo install`.
 const VERSION_STORE_BYTES: &[(&str, &[u8])] = &[("default", include_bytes!("../../mcp_store.db"))];
 // mcpify:versions:end
 

@@ -5,26 +5,19 @@ use std::path::{Path, PathBuf};
 use serde_json::{Map, Value};
 
 use super::config_schema::Config;
+use super::credential_storage::resolve_home_dir;
 use super::errors::McpifyError;
 
 const ENV_PREFIX: &str = "BAMBOO_MCP";
-/// The home-relative config directory name, and the local-cwd config
-/// filename, exposed publicly so `cli::setup_wizard` can persist a config
-/// file to exactly the path/tier this module's own `load_config` cascade
-/// reads back — keeping the writer and the reader in lockstep.
-pub const CONFIG_DIR_NAME: &str = ".bamboo-mcp";
-pub const LOCAL_CONFIG_FILE: &str = "bamboo-mcp.config.yml";
+const CONFIG_DIR_NAME: &str = ".bamboo-mcp";
+const LOCAL_CONFIG_FILE: &str = "bamboo-mcp.config.yml";
 
-/// Env vars this crate reads directly (`HOME`, with a `USERPROFILE`
-/// fallback for Windows) rather than via a `dirs`-style crate: keeps the
-/// dependency list matched to the toolchain table, at the cost of `~`
-/// resolution only working where one of those is set (true for every
-/// deployment target this project's Dockerfile/docker-compose.yml target).
-pub fn resolve_home_dir() -> PathBuf {
-    std::env::var_os("HOME")
-        .or_else(|| std::env::var_os("USERPROFILE"))
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("."))
+/// Shares `credential_storage::resolve_home_dir`'s cross-platform lookup
+/// (`HOME`, falling back to `USERPROFILE` on Windows, falling back to `.`)
+/// rather than reading `HOME` directly, so config-file resolution doesn't
+/// silently collapse to the current directory on Windows.
+fn home_dir() -> PathBuf {
+    resolve_home_dir()
 }
 
 fn read_yaml_if_exists(path: &Path) -> Map<String, Value> {
@@ -35,6 +28,17 @@ fn read_yaml_if_exists(path: &Path) -> Map<String, Value> {
         Ok(Value::Object(map)) => map,
         _ => Map::new(),
     }
+}
+
+fn parse_env_value(config_key: &str, value: &str) -> Value {
+    if matches!(
+        config_key,
+        "rate_limit" | "timeout_ms" | "cache_size" | "retry_attempts" | "port"
+    ) && let Ok(number) = value.parse::<u64>()
+    {
+        return Value::Number(number.into());
+    }
+    Value::String(value.to_string())
 }
 
 fn env_overrides() -> Map<String, Value> {
@@ -54,7 +58,7 @@ fn env_overrides() -> Map<String, Value> {
         ("port", "PORT"),
     ] {
         if let Ok(value) = std::env::var(format!("{ENV_PREFIX}_{env_suffix}")) {
-            overrides.insert(config_key.to_string(), Value::String(value));
+            overrides.insert(config_key.to_string(), parse_env_value(config_key, &value));
         }
     }
     overrides
@@ -76,7 +80,7 @@ pub fn load_config(cli_flags: Map<String, Value>) -> Result<Config, McpifyError>
         cli_flags,
         env_overrides(),
         read_yaml_if_exists(&PathBuf::from(LOCAL_CONFIG_FILE)),
-        read_yaml_if_exists(&resolve_home_dir().join(CONFIG_DIR_NAME).join("config.yml")),
+        read_yaml_if_exists(&home_dir().join(CONFIG_DIR_NAME).join("config.yml")),
         read_yaml_if_exists(&PathBuf::from("/etc/bamboo-mcp/config.yml")),
         read_yaml_if_exists(&install_dir.join("config.yml")),
     ];
@@ -125,5 +129,19 @@ mod tests {
     fn missing_required_fields_report_a_configuration_error() {
         let err = load_config(Map::new()).unwrap_err();
         assert_eq!(err.code(), "CONFIGURATION_ERROR");
+    }
+
+    #[test]
+    fn numeric_environment_overrides_are_typed_before_deserialization() {
+        assert_eq!(parse_env_value("port", "33017"), json!(33017));
+        assert_eq!(parse_env_value("timeout_ms", "2500"), json!(2500));
+        assert_eq!(
+            parse_env_value("url", "https://api.example"),
+            json!("https://api.example")
+        );
+        assert_eq!(
+            parse_env_value("port", "not-a-number"),
+            json!("not-a-number")
+        );
     }
 }
