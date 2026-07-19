@@ -84,6 +84,45 @@ bamboo-mcp start                              # stdio transport (default)
 bamboo-mcp http --host 127.0.0.1 --port 3000  # HTTP transport
 ```
 
+### Connect an MCP client
+
+**stdio:** after running `bamboo-mcp setup`, configure an MCP host to spawn the server. Include the connection settings printed by the wizard:
+
+```json
+{
+  "mcpServers": {
+    "bamboo-mcp": {
+      "command": "bamboo-mcp",
+      "args": ["start"],
+      "env": {
+        "BAMBOO_MCP_URL": "<your target API URL>",
+        "BAMBOO_MCP_AUTH_METHOD": "basic",
+        "BAMBOO_MCP_TRANSPORT": "stdio"
+      }
+    }
+  }
+}
+```
+
+Use the absolute executable path if `bamboo-mcp` is not on the MCP host's `PATH`. The stdio server reads the connection settings from this `env` block and uses the credentials saved by `setup`.
+
+**HTTP:** every request must carry its own `Authorization` header — HTTP transport intentionally does not fall back to credentials stored on the server:
+
+```json
+{
+  "mcpServers": {
+    "bamboo-mcp": {
+      "url": "http://127.0.0.1:3000/mcp",
+      "headers": {
+        "Authorization": "<credential value>"
+      }
+    }
+  }
+}
+```
+
+Keep the listener on localhost unless you have added appropriate network access controls and TLS in front of it.
+
 ## Docker
 
 ```bash
