@@ -19,6 +19,17 @@ If the user wants to list or inspect many plans/projects at once and your enviro
 running an isolated sub-task, delegate that listing and bring back only the resolved names/keys
 that matter, rather than pulling a large listing payload into this conversation.
 
+**Cloning a plan.** If the user wants a new plan that starts out the same as an existing one,
+search for how to clone a plan rather than recreating it field by field.
+
+**Chained builds.** If the user wants one plan to build automatically after another one succeeds,
+this is a plan dependency, not a plan setting — search for how to find or set parent/child plan
+dependencies rather than assuming it's configured on the triggering plan alone.
+
+**Masked/secret variables.** Before storing a secret as a plan or project variable, search for how
+to encrypt a value first — plain-text variables are visible to anyone who can view the plan's
+configuration.
+
 For triggering or monitoring an actual build, or for deployment setup, see
 `bamboo_workflow_builds` and `bamboo_workflow_deployments` instead — this prompt only covers the
 project/plan resources themselves.

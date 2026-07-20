@@ -16,3 +16,11 @@ steps for a full lockout, not duplicated work.
 For access tokens specifically, confirm with the user whether they want the token scoped to their
 own account or to a service/bot user before creating one — Bamboo doesn't let you widen a token's
 scope after creation, only revoke and reissue it.
+
+This domain also covers the current-authenticated-user lookup, avatar upload/retrieval, and
+admin-forced session invalidation (ending a specific named user's active sessions, e.g. after
+disabling their account) — search for these the same way as any other operation here.
+
+If a user- or group-management call that should work is unexpectedly rejected, this may be the
+elevated-session ("websudo") requirement described in `bamboo_workflow_server_admin`, not an
+actual permissions gap — check there before assuming the caller lacks permission.

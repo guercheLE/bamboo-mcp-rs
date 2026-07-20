@@ -13,6 +13,10 @@ a repository can be created with bad credentials or an unreachable URL and still
 create call. Always follow a create with a connection-test search-and-call, and don't tell the
 user the repository is ready until that test passes.
 
+**Triggering change detection manually.** If the user doesn't want to wait for the next scheduled
+poll, search for how to trigger remote change detection for a repository rather than assuming
+there's no way to force it.
+
 If the goal is to grant a specific user or group access to a repository (rather than manage the
 repository resource itself), see `bamboo_workflow_permissions`, which covers the same
 list/grant/revoke pattern for repository-scoped permissions specifically.

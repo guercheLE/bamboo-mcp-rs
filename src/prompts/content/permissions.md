@@ -20,3 +20,7 @@ users/groups/roles that actually have access, not the full per-resource payload.
 
 For agent-related permissions specifically, see `bamboo_workflow_agents_capabilities`; for
 repository access grants, see `bamboo_workflow_repositories`.
+
+Granting or revoking global/admin-scoped permissions is itself one of the actions the
+elevated-session ("websudo") requirement in `bamboo_workflow_server_admin` tends to gate — if such
+a call is unexpectedly rejected, check there before assuming the caller lacks permission.

@@ -7,3 +7,6 @@ specific thing you want in plain language (e.g. `search for "how to search for p
 on any response field name. If the search or report could return a large result set, and your
 environment supports running an isolated sub-task, delegate the listing and bring back only the
 specific items that answer the user's question rather than the full payload.
+
+If results look stale or wrong rather than just empty, that's a search-index problem, not a query
+problem — the reindex operation lives in `bamboo_workflow_server_admin`, not here.

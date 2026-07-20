@@ -16,5 +16,14 @@ agents are eligible to run a given job, but setting one side doesn't touch the o
 wants a job to run on a specific agent, check whether the mismatch is on the job's requirements or
 the agent's capabilities before changing either.
 
+**Assigning an agent to a specific job.** This is a separate, more direct mechanism than
+capability matching above — search for how to find agents currently assigned to a job, find which
+agents are eligible to be assigned, add an assignment, or remove one. If the user wants a job to
+run on a specific agent every time rather than whichever eligible agent picks it up next, this is
+the operation to use, not a capability requirement change.
+
+**Per-job Docker pipeline configuration** is a related job-level setting — search for how to get
+or set it if the user's job runs in a Docker-based build environment.
+
 For granting a user or group permission to assign/manage agents, see `bamboo_workflow_permissions`
 instead.

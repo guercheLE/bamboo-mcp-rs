@@ -88,6 +88,39 @@ bamboo-mcp start                              # stdio transport (default)
 bamboo-mcp http --host 127.0.0.1 --port 3000  # HTTP transport
 ```
 
+### Guided workflows (MCP prompts)
+
+Beyond the three `search`/`get`/`call` tools, the server exposes MCP **prompts**: a master
+`bamboo_workflow` menu plus one guided sub-workflow prompt per Bamboo domain, so a calling LLM
+doesn't have to rediscover a task's sequencing (which resources depend on which, what forks on a
+yes/no answer, what's safe to do in parallel) from scratch every session. Every prompt's guidance
+is phrased as a task to search for — never a specific `operationId` or assumed response field —
+so it stays correct regardless of which Bamboo API version this server is fronting. Where the MCP
+client supports running an isolated sub-task, the master prompt delegates the whole matched
+sub-workflow to it, keeping that sub-workflow's own `search`/`get`/`call` traffic out of the main
+conversation.
+
+Start with `bamboo_workflow` (optionally passing a `goal`), or fetch a sub-workflow directly:
+
+| Prompt | Covers |
+|---|---|
+| `bamboo_workflow` | Menu + goal-based routing to the sub-workflow below |
+| `bamboo_workflow_projects_plans` | Project/plan lifecycle, favourites, labels, branches, variables, spec export |
+| `bamboo_workflow_builds` | Trigger/monitor a plan build, comments/labels, broken-build responsibility |
+| `bamboo_workflow_deployments` | Deployment project → environment → version → trigger, including first-time setup |
+| `bamboo_workflow_agents_capabilities` | Local/remote/elastic/ephemeral agents, capabilities, job/environment assignment |
+| `bamboo_workflow_permissions` | Grant/revoke/list permissions across every permission-scoped resource kind |
+| `bamboo_workflow_repositories` | Linked-repository registration, connection test, specs scan, access grants |
+| `bamboo_workflow_users_groups` | Users, groups, access tokens, sessions |
+| `bamboo_workflow_server_admin` | Server-wide settings, retention/expiry, scheduler, reindex |
+| `bamboo_workflow_search_reporting` | Search, quick filters, charts/reports |
+
+```bash
+# Any MCP client that supports prompts/list and prompts/get works; here's the raw JSON-RPC shape
+# sent over the same stdio/HTTP connection used for tool calls:
+{"jsonrpc":"2.0","id":1,"method":"prompts/get","params":{"name":"bamboo_workflow_deployments","arguments":{"plan_key":"PAY-MAIN"}}}
+```
+
 ### Connect an MCP client
 
 **stdio:** after running `bamboo-mcp setup`, configure an MCP host to spawn the server. Include the connection settings printed by the wizard:
