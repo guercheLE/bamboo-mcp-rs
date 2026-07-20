@@ -55,27 +55,27 @@ async fn prompts_list_advertises_all_ten_prompts_and_deployments_arguments() {
     assert_eq!(
         names,
         [
-            "bamboo_workflow",
-            "bamboo_workflow_agents_capabilities",
-            "bamboo_workflow_builds",
-            "bamboo_workflow_deployments",
-            "bamboo_workflow_permissions",
-            "bamboo_workflow_projects_plans",
-            "bamboo_workflow_repositories",
-            "bamboo_workflow_search_reporting",
-            "bamboo_workflow_server_admin",
-            "bamboo_workflow_users_groups",
+            "bamboo",
+            "bamboo-agents-capabilities",
+            "bamboo-builds",
+            "bamboo-deployments",
+            "bamboo-permissions",
+            "bamboo-projects-plans",
+            "bamboo-repositories",
+            "bamboo-search-reporting",
+            "bamboo-server-admin",
+            "bamboo-users-groups",
         ]
     );
 
     let deployments = prompts
         .iter()
-        .find(|p| p.name == "bamboo_workflow_deployments")
-        .expect("bamboo_workflow_deployments must be advertised");
+        .find(|p| p.name == "bamboo-deployments")
+        .expect("bamboo-deployments must be advertised");
     let arguments = deployments
         .arguments
         .as_ref()
-        .expect("bamboo_workflow_deployments must advertise its arguments");
+        .expect("bamboo-deployments must advertise its arguments");
     let mut argument_names: Vec<&str> = arguments.iter().map(|a| a.name.as_str()).collect();
     argument_names.sort_unstable();
     assert_eq!(
@@ -118,10 +118,10 @@ async fn master_prompt_links_to_the_deployments_sub_workflow() {
     let client = TestClient.serve(client_transport).await.unwrap();
 
     let result = client
-        .get_prompt(GetPromptRequestParams::new("bamboo_workflow"))
+        .get_prompt(GetPromptRequestParams::new("bamboo"))
         .await
         .unwrap();
-    assert!(first_text(&result).contains("bamboo_workflow_deployments"));
+    assert!(first_text(&result).contains("bamboo-deployments"));
 
     drop(client);
     tokio::time::timeout(std::time::Duration::from_secs(2), server_task)
@@ -142,7 +142,7 @@ async fn deployments_prompt_echoes_supplied_args_and_lists_the_missing_one() {
 
     let result = client
         .get_prompt(
-            GetPromptRequestParams::new("bamboo_workflow_deployments").with_arguments(
+            GetPromptRequestParams::new("bamboo-deployments").with_arguments(
                 serde_json::json!({
                     "deployment_project": "payments",
                     "plan_key": "PAY-MAIN"

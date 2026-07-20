@@ -10,7 +10,7 @@ relying on any response field name.
 One real gotcha: removing a user from a group doesn't revoke permissions granted to that user
 *directly* (outside the group) — if the goal is "fully lock this user out," check both the user's
 direct permission grants and their group memberships, not just one or the other. Direct-permission
-review is `bamboo_workflow_permissions`'s job, not this prompt's — treat the two as complementary
+review is `bamboo-permissions`'s job, not this prompt's — treat the two as complementary
 steps for a full lockout, not duplicated work.
 
 For access tokens specifically, confirm with the user whether they want the token scoped to their
@@ -22,5 +22,5 @@ admin-forced session invalidation (ending a specific named user's active session
 disabling their account) — search for these the same way as any other operation here.
 
 If a user- or group-management call that should work is unexpectedly rejected, this may be the
-elevated-session ("websudo") requirement described in `bamboo_workflow_server_admin`, not an
+elevated-session ("websudo") requirement described in `bamboo-server-admin`, not an
 actual permissions gap — check there before assuming the caller lacks permission.

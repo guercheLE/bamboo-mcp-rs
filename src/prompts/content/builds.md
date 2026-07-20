@@ -19,5 +19,5 @@ the outcome, search for how to get a build result and poll its status until it r
 state before summarizing.
 
 If the plan doesn't exist yet, or the user wants to change what a plan does rather than just build
-it, see `bamboo_workflow_projects_plans`. To deploy what this build produces, see
-`bamboo_workflow_deployments`, which takes this build's plan key as one of its own parameters.
+it, see `bamboo-projects-plans`. To deploy what this build produces, see
+`bamboo-deployments`, which takes this build's plan key as one of its own parameters.

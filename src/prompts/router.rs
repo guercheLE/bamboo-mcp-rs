@@ -14,18 +14,21 @@ use crate::prompts::{BuildsArgs, DeploymentsArgs, MasterWorkflowArgs, render_con
 /// `mcp_server.rs` module it's defined in, where the macro's default
 /// private visibility is enough), the generated `prompt_router()` fn is
 /// called from `McpifyServer::new()` in a different module, so it needs
-/// to be `pub` to be reachable from there.
+/// to be `pub` to be reachable from there. Wire-visible prompt `name`s
+/// are hyphenated (`bamboo-deployments`, not `bamboo_deployments`) and
+/// never carry a redundant "workflow" segment; the Rust fn identifiers
+/// stay underscored (valid Rust) but otherwise mirror the wire name.
 #[prompt_router(vis = "pub")]
 impl McpifyServer {
     #[prompt(
-        name = "bamboo_workflow",
+        name = "bamboo",
         description = "Start here. Presents the available Bamboo management workflows, \
                         routes to the right guided sub-workflow based on the user's goal, \
                         and — where the environment supports it — delegates that whole \
                         sub-workflow to an isolated sub-task to spare this conversation's \
                         context window."
     )]
-    async fn bamboo_workflow_prompt(
+    async fn bamboo_prompt(
         &self,
         Parameters(args): Parameters<MasterWorkflowArgs>,
     ) -> Vec<PromptMessage> {
@@ -37,11 +40,11 @@ impl McpifyServer {
     }
 
     #[prompt(
-        name = "bamboo_workflow_projects_plans",
+        name = "bamboo-projects-plans",
         description = "Project and plan lifecycle: create/get/delete, enable/disable, \
                         favourites, labels, branches, plan/project variables, spec export."
     )]
-    async fn bamboo_workflow_projects_plans_prompt(&self) -> Vec<PromptMessage> {
+    async fn bamboo_projects_plans_prompt(&self) -> Vec<PromptMessage> {
         vec![PromptMessage::new_text(
             Role::User,
             include_str!("content/projects_plans.md"),
@@ -49,11 +52,11 @@ impl McpifyServer {
     }
 
     #[prompt(
-        name = "bamboo_workflow_builds",
+        name = "bamboo-builds",
         description = "Trigger a plan build via the queue, monitor its result, add \
                         comments/labels, manage broken-build responsibility."
     )]
-    async fn bamboo_workflow_builds_prompt(
+    async fn bamboo_builds_prompt(
         &self,
         Parameters(args): Parameters<BuildsArgs>,
     ) -> Vec<PromptMessage> {
@@ -65,11 +68,11 @@ impl McpifyServer {
     }
 
     #[prompt(
-        name = "bamboo_workflow_deployments",
+        name = "bamboo-deployments",
         description = "Guided deployment-project → environment → version → trigger flow, \
                         including the fresh-vs-reused-version fork."
     )]
-    async fn bamboo_workflow_deployments_prompt(
+    async fn bamboo_deployments_prompt(
         &self,
         Parameters(args): Parameters<DeploymentsArgs>,
     ) -> Vec<PromptMessage> {
@@ -85,11 +88,11 @@ impl McpifyServer {
     }
 
     #[prompt(
-        name = "bamboo_workflow_agents_capabilities",
+        name = "bamboo-agents-capabilities",
         description = "Local/remote/elastic/ephemeral agent lifecycle, capabilities, agent \
                         assignment to jobs/environments."
     )]
-    async fn bamboo_workflow_agents_capabilities_prompt(&self) -> Vec<PromptMessage> {
+    async fn bamboo_agents_capabilities_prompt(&self) -> Vec<PromptMessage> {
         vec![PromptMessage::new_text(
             Role::User,
             include_str!("content/agents_capabilities.md"),
@@ -97,12 +100,12 @@ impl McpifyServer {
     }
 
     #[prompt(
-        name = "bamboo_workflow_permissions",
+        name = "bamboo-permissions",
         description = "The repeated list/grant/revoke-for-users/groups/roles pattern across \
                         all seven permission-scoped resource kinds (global, project, plan, \
                         projectplan, deployment, environment, repository)."
     )]
-    async fn bamboo_workflow_permissions_prompt(&self) -> Vec<PromptMessage> {
+    async fn bamboo_permissions_prompt(&self) -> Vec<PromptMessage> {
         vec![PromptMessage::new_text(
             Role::User,
             include_str!("content/permissions.md"),
@@ -110,11 +113,11 @@ impl McpifyServer {
     }
 
     #[prompt(
-        name = "bamboo_workflow_repositories",
+        name = "bamboo-repositories",
         description = "Linked-repository lifecycle: registration, connection test, specs \
                         scanning, cross-repository/project access grants."
     )]
-    async fn bamboo_workflow_repositories_prompt(&self) -> Vec<PromptMessage> {
+    async fn bamboo_repositories_prompt(&self) -> Vec<PromptMessage> {
         vec![PromptMessage::new_text(
             Role::User,
             include_str!("content/repositories.md"),
@@ -122,11 +125,11 @@ impl McpifyServer {
     }
 
     #[prompt(
-        name = "bamboo_workflow_users_groups",
+        name = "bamboo-users-groups",
         description = "User and group administration, access tokens, group membership, \
                         session management."
     )]
-    async fn bamboo_workflow_users_groups_prompt(&self) -> Vec<PromptMessage> {
+    async fn bamboo_users_groups_prompt(&self) -> Vec<PromptMessage> {
         vec![PromptMessage::new_text(
             Role::User,
             include_str!("content/users_groups.md"),
@@ -134,11 +137,11 @@ impl McpifyServer {
     }
 
     #[prompt(
-        name = "bamboo_workflow_server_admin",
+        name = "bamboo-server-admin",
         description = "Server-wide configuration: general/security/mail/IM settings, global \
                         variables, artifact handlers, dark features, pause/resume, node status."
     )]
-    async fn bamboo_workflow_server_admin_prompt(&self) -> Vec<PromptMessage> {
+    async fn bamboo_server_admin_prompt(&self) -> Vec<PromptMessage> {
         vec![PromptMessage::new_text(
             Role::User,
             include_str!("content/server_admin.md"),
@@ -146,12 +149,12 @@ impl McpifyServer {
     }
 
     #[prompt(
-        name = "bamboo_workflow_search_reporting",
+        name = "bamboo-search-reporting",
         description = "Thin pointer to the right read-only signal (search across \
                         plans/projects/branches/deployments/jobs/stages/users/versions/authors, \
                         quick filters, charts/reports)."
     )]
-    async fn bamboo_workflow_search_reporting_prompt(&self) -> Vec<PromptMessage> {
+    async fn bamboo_search_reporting_prompt(&self) -> Vec<PromptMessage> {
         vec![PromptMessage::new_text(
             Role::User,
             include_str!("content/search_reporting.md"),

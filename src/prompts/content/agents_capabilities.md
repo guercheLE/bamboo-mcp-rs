@@ -25,5 +25,5 @@ the operation to use, not a capability requirement change.
 **Per-job Docker pipeline configuration** is a related job-level setting — search for how to get
 or set it if the user's job runs in a Docker-based build environment.
 
-For granting a user or group permission to assign/manage agents, see `bamboo_workflow_permissions`
+For granting a user or group permission to assign/manage agents, see `bamboo-permissions`
 instead.

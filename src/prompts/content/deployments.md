@@ -1,7 +1,7 @@
 # Bamboo deployments: project → environment → version → trigger
 
 This sub-workflow is designed to be run as an isolated sub-task where possible — if you were
-delegated here from `bamboo_workflow`'s routing, or your environment otherwise supports running
+delegated here from `bamboo`'s routing, or your environment otherwise supports running
 this as its own sub-task, everything you need is in this prompt's own text plus the parameters
 already listed above. Report back only a short summary when done (what was triggered/confirmed,
 and anything still needed from the user) rather than the full step-by-step trace.
@@ -66,6 +66,6 @@ offer next actions — retry, or promote to the next environment.
 
 ## Composing with other workflows
 
-The source plan and its build artifacts come from `bamboo_workflow_projects_plans` and
-`bamboo_workflow_builds`; environment permission scopes overlap with `bamboo_workflow_permissions`.
+The source plan and its build artifacts come from `bamboo-projects-plans` and
+`bamboo-builds`; environment permission scopes overlap with `bamboo-permissions`.
 Fetch those prompts by name for more detail rather than assuming their content here.

@@ -3,9 +3,9 @@ pub mod router;
 use rmcp::schemars;
 use serde::Deserialize;
 
-/// Arguments for the `bamboo_workflow` master prompt. `goal` is free-text
-/// so the calling LLM can describe what it's trying to do in its own
-/// words; the prompt's own routing prose matches it to a sub-workflow.
+/// Arguments for the `bamboo` master prompt. `goal` is free-text so the
+/// calling LLM can describe what it's trying to do in its own words; the
+/// prompt's own routing prose matches it to a sub-workflow.
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct MasterWorkflowArgs {
     /// What you're trying to accomplish, in your own words (e.g. "set up
@@ -13,7 +13,7 @@ pub struct MasterWorkflowArgs {
     pub goal: Option<String>,
 }
 
-/// Arguments for `bamboo_workflow_builds`.
+/// Arguments for `bamboo-builds`.
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct BuildsArgs {
     /// The plan key whose build you want to trigger, inspect, or manage
@@ -21,7 +21,7 @@ pub struct BuildsArgs {
     pub plan_key: Option<String>,
 }
 
-/// Arguments for `bamboo_workflow_deployments`.
+/// Arguments for `bamboo-deployments`.
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct DeploymentsArgs {
     /// Name of the deployment project, if one already exists.

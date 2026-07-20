@@ -18,9 +18,9 @@ If the user wants to review permissions across many resources of the same kind, 
 environment supports running an isolated sub-task, delegate that listing and bring back only the
 users/groups/roles that actually have access, not the full per-resource payload.
 
-For agent-related permissions specifically, see `bamboo_workflow_agents_capabilities`; for
-repository access grants, see `bamboo_workflow_repositories`.
+For agent-related permissions specifically, see `bamboo-agents-capabilities`; for
+repository access grants, see `bamboo-repositories`.
 
 Granting or revoking global/admin-scoped permissions is itself one of the actions the
-elevated-session ("websudo") requirement in `bamboo_workflow_server_admin` tends to gate — if such
+elevated-session ("websudo") requirement in `bamboo-server-admin` tends to gate — if such
 a call is unexpectedly rejected, check there before assuming the caller lacks permission.

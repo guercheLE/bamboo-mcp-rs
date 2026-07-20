@@ -15,23 +15,23 @@ steps directly here if no such delegation mechanism is available.
 
 ## Sub-workflows
 
-- **`bamboo_workflow_projects_plans`** — create, inspect, or manage a build project or plan
+- **`bamboo-projects-plans`** — create, inspect, or manage a build project or plan
   (enable/disable, favourites, labels, branches, variables, spec export).
-- **`bamboo_workflow_builds`** — trigger a plan build, check its result, comment/label it, or
+- **`bamboo-builds`** — trigger a plan build, check its result, comment/label it, or
   manage broken-build responsibility.
-- **`bamboo_workflow_deployments`** — set up or run a deployment: project → environment →
+- **`bamboo-deployments`** — set up or run a deployment: project → environment →
   version → trigger, including first-time environment setup.
-- **`bamboo_workflow_agents_capabilities`** — manage local/remote/elastic/ephemeral build agents
+- **`bamboo-agents-capabilities`** — manage local/remote/elastic/ephemeral build agents
   and their capabilities, or assign agents to jobs/environments.
-- **`bamboo_workflow_permissions`** — grant, revoke, or list permissions for users/groups/roles
+- **`bamboo-permissions`** — grant, revoke, or list permissions for users/groups/roles
   on any resource kind (global, project, plan, deployment, environment, repository).
-- **`bamboo_workflow_repositories`** — register or manage a linked repository, test its
+- **`bamboo-repositories`** — register or manage a linked repository, test its
   connection, scan for build specs, or grant cross-repository/project access.
-- **`bamboo_workflow_users_groups`** — administer users and groups, access tokens, group
+- **`bamboo-users-groups`** — administer users and groups, access tokens, group
   membership, or sessions.
-- **`bamboo_workflow_server_admin`** — server-wide configuration: general/security/mail/IM
+- **`bamboo-server-admin`** — server-wide configuration: general/security/mail/IM
   settings, global variables, artifact handlers, dark features, pause/resume, node status.
-- **`bamboo_workflow_search_reporting`** — find the right read-only signal: search across
+- **`bamboo-search-reporting`** — find the right read-only signal: search across
   plans/projects/branches/deployments/jobs/stages/users/versions/authors, quick filters, or
   charts/reports.
 

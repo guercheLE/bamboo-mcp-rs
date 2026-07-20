@@ -9,4 +9,4 @@ environment supports running an isolated sub-task, delegate the listing and brin
 specific items that answer the user's question rather than the full payload.
 
 If results look stale or wrong rather than just empty, that's a search-index problem, not a query
-problem — the reindex operation lives in `bamboo_workflow_server_admin`, not here.
+problem — the reindex operation lives in `bamboo-server-admin`, not here.

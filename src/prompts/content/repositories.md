@@ -18,5 +18,5 @@ poll, search for how to trigger remote change detection for a repository rather 
 there's no way to force it.
 
 If the goal is to grant a specific user or group access to a repository (rather than manage the
-repository resource itself), see `bamboo_workflow_permissions`, which covers the same
+repository resource itself), see `bamboo-permissions`, which covers the same
 list/grant/revoke pattern for repository-scoped permissions specifically.

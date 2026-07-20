@@ -31,5 +31,5 @@ to encrypt a value first — plain-text variables are visible to anyone who can 
 configuration.
 
 For triggering or monitoring an actual build, or for deployment setup, see
-`bamboo_workflow_builds` and `bamboo_workflow_deployments` instead — this prompt only covers the
+`bamboo-builds` and `bamboo-deployments` instead — this prompt only covers the
 project/plan resources themselves.
