@@ -9,7 +9,7 @@
       "db_file": "mcp_store.db",
       "schemas_file": "src/validation/generated_schemas.json.zst",
       "source": "https://dac-static.atlassian.com/server/bamboo/swagger.v3.json",
-      "added_at": 1783242690
+      "added_at": 1784659110
     }
   }
 }
